@@ -7,7 +7,10 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::mem;
 use std::ops::Deref;
 #[cfg(unix)]
-use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, RawFd};
+use std::os::unix::{
+    fs::FileExt,
+    io::{AsFd, AsRawFd, BorrowedFd, RawFd},
+};
 #[cfg(target_os = "wasi")]
 use std::os::wasi::io::{AsFd, AsRawFd, BorrowedFd, RawFd};
 #[cfg(windows)]
@@ -1101,6 +1104,36 @@ impl<F: AsRawHandle> AsRawHandle for NamedTempFile<F> {
     #[inline]
     fn as_raw_handle(&self) -> RawHandle {
         self.as_file().as_raw_handle()
+    }
+}
+
+#[cfg(unix)]
+impl<F: FileExt> FileExt for NamedTempFile<F> {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> {
+        self.as_file()
+            .read_at(buf, offset)
+            .with_err_path(|| self.path())
+    }
+
+    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<usize> {
+        self.as_file()
+            .write_at(buf, offset)
+            .with_err_path(|| self.path())
+    }
+}
+
+#[cfg(unix)]
+impl FileExt for &NamedTempFile<File> {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> {
+        self.as_file()
+            .read_at(buf, offset)
+            .with_err_path(|| self.path())
+    }
+
+    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<usize> {
+        self.as_file()
+            .write_at(buf, offset)
+            .with_err_path(|| self.path())
     }
 }
 
